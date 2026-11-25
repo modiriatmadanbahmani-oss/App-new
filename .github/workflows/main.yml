@@ -15,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -23,41 +23,35 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
-        with:
-          packages: ''
 
-      - name: Extract ZIP files
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Extract ZIP
         run: |
           find . -type f -name "*.zip" -not -path "./.git/*" -print0 | while IFS= read -r -d '' f; do
             mkdir -p extracted_project
             unzip -o "$f" -d extracted_project
           done
 
-      - name: Find project root
+      - name: Locate Android project
         run: |
-          SETTINGS=$(find . -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) -not -path "./.git/*" | head -n 1)
+          BUILD_FILE=$(find . -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) -not -path "./.git/*" | head -n 1)
 
-          if [ -z "$SETTINGS" ]; then
-            echo "Gradle settings file not found"
-            find . -maxdepth 5 -type f
+          if [ -z "$BUILD_FILE" ]; then
+            echo "Settings file not found"
             exit 1
           fi
 
-          PROJECT_DIR=$(dirname "$SETTINGS")
-          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
-          echo "Project root: $PROJECT_DIR"
+          PROJECT_DIR=$(dirname "$BUILD_FILE")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Build APK
         run: |
           cd "$PROJECT_DIR"
-
-          if [ -f gradlew ]; then
-            chmod +x gradlew
-            ./gradlew --no-daemon assembleDebug
-          else
-            echo "Gradle wrapper not found"
-            exit 1
-          fi
+          gradle assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
